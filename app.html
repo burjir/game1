@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exponent Defender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* Slate 950 */
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: manipulation; /* Good for touch screens */
+        }
+
+        .font-space {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Starfield background */
+        #starfield {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+        }
+
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
+
+        /* Meteor Animation */
+        .meteor-container {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: -150px;
+            transition: top 0.1s linear;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .meteor {
+            background: linear-gradient(135deg, #f97316, #dc2626);
+            border: 3px solid #fef08a;
+            box-shadow: 0 0 20px #ef4444, inset 0 0 10px #7f1d1d;
+            border-radius: 12px;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            min-width: 150px;
+            position: relative;
+            animation: pulse 1s infinite alternate;
+        }
+
+        .meteor::after {
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 60px;
+            background: linear-gradient(to top, rgba(239, 68, 68, 0.8), transparent);
+            filter: blur(8px);
+            z-index: -1;
+            border-radius: 50%;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 15px #ef4444; }
+            100% { box-shadow: 0 0 30px #f97316; }
+        }
+
+        /* Laser Animation */
+        .laser {
+            position: absolute;
+            bottom: 120px; /* starts above buttons */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 0;
+            background-color: #38bdf8;
+            box-shadow: 0 0 15px #0ea5e9;
+            z-index: 10;
+            transition: height 0.2s ease-out;
+        }
+
+        /* Explosion */
+        .explosion {
+            position: absolute;
+            font-size: 60px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        @keyframes explodeAnim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        /* Base Cannon */
+        .cannon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(to top, #475569, #94a3b8);
+            border-radius: 10px 10px 0 0;
+            position: absolute;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+        }
+        
+        .cannon-barrel {
+            width: 20px;
+            height: 30px;
+            background-color: #cbd5e1;
+            position: absolute;
+            top: -20px;
+            border-radius: 5px 5px 0 0;
+        }
+
+        /* Custom Button Styles */
+        .answer-btn {
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            border: 2px solid #334155;
+            transition: all 0.1s;
+        }
+        .answer-btn:hover, .answer-btn:focus {
+            background: #334155;
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+            outline: none;
+        }
+        .answer-btn:active {
+            transform: scale(0.95);
+            background: #0ea5e9;
+            color: white;
+        }
+
+        /* Shake animation for wrong answers */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        .math-sup {
+            font-size: 0.7em;
+            vertical-align: super;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- Background -->
+    <div id="starfield"></div>
+
+    <!-- UI Overlay -->
+    <div class="relative z-20 flex justify-between items-center p-4">
+        <div class="font-space text-2xl md:text-3xl text-sky-400 drop-shadow-md tracking-wider">
+            EXPONENT DEFENDER
+        </div>
+        <div class="flex gap-4">
+            <div class="bg-slate-800/80 border border-slate-600 px-4 py-2 rounded-lg font-space text-xl">
+                SCORE: <span id="scoreDisplay" class="text-green-400">0</span>
+            </div>
+            <div class="bg-slate-800/80 border border-slate-600 px-4 py-2 rounded-lg font-space text-xl">
+                CITY INTEGRITY: <span id="healthDisplay" class="text-red-400">100%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Area -->
+    <div id="gameArea" class="flex-grow relative w-full max-w-4xl mx-auto">
+        <!-- Start Screen -->
+        <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-30 rounded-xl m-4 border border-slate-700">
+            <h1 class="font-space text-4xl md:text-5xl text-yellow-400 mb-6 text-center px-4">Defend the City from Exponent Meteors!</h1>
+            <ul class="text-lg md:text-xl mb-8 space-y-3 text-slate-300 max-w-2xl px-6">
+                <li>🎯 Read the math problem on the falling meteor.</li>
+                <li>⚡ Tap the correct answer below before it hits the ground.</li>
+                <li>⚠️ Watch out for sneaky negative signs and parentheses!</li>
+            </ul>
+            <button id="startBtn" class="font-space text-2xl bg-sky-600 hover:bg-sky-500 text-white px-10 py-4 rounded-full shadow-[0_0_20px_rgba(2,132,199,0.6)] transition-all transform hover:scale-105 active:scale-95">
+                START MISSION
+            </button>
+        </div>
+
+        <!-- End Screen -->
+        <div id="endScreen" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 z-30 rounded-xl m-4 border border-slate-700">
+            <h1 id="endTitle" class="font-space text-5xl mb-4 text-center px-4">Mission Complete</h1>
+            <p class="text-2xl mb-2">Final Score: <span id="finalScore" class="font-bold text-sky-400">0</span></p>
+            <p id="endMessage" class="text-lg text-slate-400 mb-8 max-w-xl text-center px-4"></p>
+            <button id="restartBtn" class="font-space text-xl bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-full transition-all transform hover:scale-105">
+                PLAY AGAIN
+            </button>
+        </div>
+
+        <!-- The Meteor -->
+        <div id="meteor" class="meteor-container hidden">
+            <div class="text-slate-300 text-sm mb-1 font-semibold" id="meteorHint">Identify the value</div>
+            <div class="meteor" id="meteorText">3 * 3 * 3</div>
+        </div>
+
+        <!-- The Cannon -->
+        <div class="cannon hidden" id="playerCannon">
+            <div class="cannon-barrel"></div>
+        </div>
+
+        <!-- The Laser (Dynamic) -->
+        <div id="laser" class="laser"></div>
+
+        <!-- Controls (Answers) -->
+        <div id="controls" class="absolute bottom-4 left-0 w-full px-4 hidden">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto h-28">
+                <button class="answer-btn text-xl md:text-2xl font-bold rounded-xl shadow-lg flex items-center justify-center" id="btn0"></button>
+                <button class="answer-btn text-xl md:text-2xl font-bold rounded-xl shadow-lg flex items-center justify-center" id="btn1"></button>
+                <button class="answer-btn text-xl md:text-2xl font-bold rounded-xl shadow-lg flex items-center justify-center" id="btn2"></button>
+                <button class="answer-btn text-xl md:text-2xl font-bold rounded-xl shadow-lg flex items-center justify-center" id="btn3"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Generate Starfield
+        const starfield = document.getElementById('starfield');
+        for (let i = 0; i < 50; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = Math.random() * 3 + 'px';
+            star.style.height = star.style.width;
+            star.style.left = Math.random() * 100 + 'vw';
+            star.style.top = Math.random() * 100 + 'vh';
+            star.style.animationDuration = (Math.random() * 3 + 1) + 's';
+            star.style.animationDelay = (Math.random() * 2) + 's';
+            starfield.appendChild(star);
+        }
+
+        // Game Data (Based directly on the 6.0 Lesson PDF)
+        const questions = [
+            { q: "3 &times; 3 &times; 3", hint: "Expand the factors", options: ["9", "27", "333", "6"], answer: 1 },
+            { q: "-3 &times; -3", hint: "Negative &times; Negative = ?", options: ["-9", "-6", "9", "6"], answer: 2 },
+            { q: "3<sup class='math-sup'>4</sup>", hint: "Which is the correct expansion?", options: ["3 &times; 4", "4 &times; 4 &times; 4", "3 &times; 3 &times; 3 &times; 3", "12"], answer: 2 },
+            { q: "(-3)<sup class='math-sup'>2</sup>", hint: "The negative is IN the parentheses", options: ["-9", "-6", "6", "9"], answer: 3 },
+            { q: "-3<sup class='math-sup'>2</sup>", hint: "NO parentheses! Apply exponent first.", options: ["-9", "9", "-6", "6"], answer: 0 },
+            { q: "4<sup class='math-sup'>3</sup>", hint: "4 &times; 4 &times; 4", options: ["12", "64", "16", "7"], answer: 1 },
+            { q: "4 &times; 3", hint: "Don't get tricked! This is NOT a power.", options: ["64", "12", "81", "7"], answer: 1 },
+            { q: "(-4)<sup class='math-sup'>2</sup>", hint: "Expand the expression", options: ["-(4 &times; 4)", "-4 &times; 2", "4 &times; 4", "-4 &times; -4"], answer: 3 }
+        ];
+
+        // Game Variables
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let health = 100;
+        let meteorY = -150;
+        let gameLoopId;
+        let fallSpeed = 0.5;
+        let isAnimating = false;
+        
+        // DOM Elements
+        const meteorEl = document.getElementById('meteor');
+        const meteorTextEl = document.getElementById('meteorText');
+        const meteorHintEl = document.getElementById('meteorHint');
+        const scoreEl = document.getElementById('scoreDisplay');
+        const healthEl = document.getElementById('healthDisplay');
+        const laserEl = document.getElementById('laser');
+        const gameArea = document.getElementById('gameArea');
+        const startScreen = document.getElementById('startScreen');
+        const endScreen = document.getElementById('endScreen');
+        const controls = document.getElementById('controls');
+        const cannon = document.getElementById('playerCannon');
+        const buttons = [
+            document.getElementById('btn0'),
+            document.getElementById('btn1'),
+            document.getElementById('btn2'),
+            document.getElementById('btn3')
+        ];
+
+        // Start Game
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            meteorEl.classList.remove('hidden');
+            controls.classList.remove('hidden');
+            cannon.classList.remove('hidden');
+            
+            // Reset Stats
+            score = 0;
+            health = 100;
+            currentQuestionIndex = 0;
+            fallSpeed = window.innerHeight < 800 ? 0.4 : 0.6; // Adjust speed for smaller screens
+            updateHUD();
+            
+            // Shuffle questions to make it fresh each time
+            questions.sort(() => Math.random() - 0.5);
+
+            loadQuestion();
+            isAnimating = false;
+            
+            if(gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length || health <= 0) {
+                endGame();
+                return;
+            }
+
+            const qData = questions[currentQuestionIndex];
+            meteorTextEl.innerHTML = qData.q;
+            meteorHintEl.innerHTML = qData.hint;
+            
+            // Reset meteor position to top
+            meteorY = -100;
+            meteorEl.style.top = meteorY + 'px';
+            meteorEl.classList.remove('shake');
+
+            // Setup buttons
+            for (let i = 0; i < 4; i++) {
+                buttons[i].innerHTML = qData.options[i];
+                buttons[i].onclick = () => checkAnswer(i);
+                buttons[i].disabled = false;
+                buttons[i].style.opacity = "1";
+            }
+        }
+
+        function checkAnswer(selectedIndex) {
+            if (isAnimating) return; // Prevent clicking during animations
+
+            const qData = questions[currentQuestionIndex];
+            
+            if (selectedIndex === qData.answer) {
+                // CORRECT
+                isAnimating = true;
+                score += 10;
+                updateHUD();
+                fireLaser();
+            } else {
+                // WRONG
+                health -= 25;
+                updateHUD();
+                meteorEl.classList.remove('shake');
+                void meteorEl.offsetWidth; // trigger reflow
+                meteorEl.classList.add('shake');
+                
+                // Visual feedback on the button
+                buttons[selectedIndex].style.opacity = "0.3";
+                buttons[selectedIndex].disabled = true;
+
+                if (health <= 0) {
+                    endGame();
+                }
+            }
+        }
+
+        function fireLaser() {
+            // Calculate distance from cannon to meteor
+            const cannonTop = window.innerHeight - 140; // Approx cannon top
+            const targetY = meteorY + 50; // Middle of meteor
+            const distance = cannonTop - targetY;
+
+            // Show and animate laser
+            laserEl.style.height = distance + 'px';
+            laserEl.style.bottom = '140px';
+            
+            setTimeout(() => {
+                // Create Explosion
+                const explosion = document.createElement('div');
+                explosion.className = 'explosion';
+                explosion.innerHTML = '💥';
+                explosion.style.left = '50%';
+                explosion.style.top = targetY + 'px';
+                explosion.style.animation = 'explodeAnim 0.5s forwards';
+                gameArea.appendChild(explosion);
+
+                // Hide laser & meteor briefly
+                laserEl.style.height = '0';
+                meteorEl.style.top = '-500px'; 
+                
+                setTimeout(() => {
+                    explosion.remove();
+                    currentQuestionIndex++;
+                    isAnimating = false;
+                    loadQuestion();
+                }, 500);
+
+            }, 200); // laser travel time
+        }
+
+        function gameLoop() {
+            if (!isAnimating && health > 0 && currentQuestionIndex < questions.length) {
+                meteorY += fallSpeed;
+                meteorEl.style.top = meteorY + 'px';
+
+                // Check if meteor hit the ground (controls area)
+                const groundLevel = window.innerHeight - 150; 
+                if (meteorY > groundLevel) {
+                    // Meteor hit the ground!
+                    health -= 25;
+                    updateHUD();
+                    
+                    // Flash screen red
+                    gameArea.style.backgroundColor = 'rgba(239, 68, 68, 0.3)';
+                    setTimeout(() => gameArea.style.backgroundColor = 'transparent', 200);
+
+                    if (health <= 0) {
+                        endGame();
+                    } else {
+                        // Move to next question automatically if we survive
+                        currentQuestionIndex++;
+                        loadQuestion();
+                    }
+                }
+            }
+
+            if (health > 0 && currentQuestionIndex < questions.length) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function updateHUD() {
+            scoreEl.innerText = score;
+            healthEl.innerText = health + '%';
+            if (health <= 30) {
+                healthEl.classList.remove('text-red-400');
+                healthEl.classList.add('text-red-600', 'animate-pulse', 'font-bold');
+            } else {
+                healthEl.classList.remove('text-red-600', 'animate-pulse', 'font-bold');
+                healthEl.classList.add('text-red-400');
+            }
+        }
+
+        function endGame() {
+            cancelAnimationFrame(gameLoopId);
+            meteorEl.classList.add('hidden');
+            controls.classList.add('hidden');
+            cannon.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            
+            document.getElementById('finalScore').innerText = score;
+            const titleEl = document.getElementById('endTitle');
+            const msgEl = document.getElementById('endMessage');
+
+            if (health <= 0) {
+                titleEl.innerText = "City Destroyed!";
+                titleEl.className = "font-space text-5xl mb-4 text-center text-red-500";
+                msgEl.innerText = "The exponent meteors breached the defenses. Review your exponent rules and try again!";
+            } else {
+                titleEl.innerText = "City Saved!";
+                titleEl.className = "font-space text-5xl mb-4 text-center text-green-400";
+                msgEl.innerText = "Excellent work defending against the powers and bases! You are an Exponent Defender.";
+            }
+        }
+    </script>
+</body>
+</html>
